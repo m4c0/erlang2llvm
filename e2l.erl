@@ -138,14 +138,20 @@ code(<<N:8/big, Data/binary>> = Rem, Acc) ->
               3 => {int_code_end, 0},
               6 => {call_only, 2},
               7 => {call_ext, 2},
+              8 => {call_ext_last, 3},
+              12 => {allocate, 2},
               19 => {return, 0},
               52 => {is_nil, 2},
               56 => {is_nonempty_list, 2},
               64 => {move, 2},
               65 => {get_list, 3},
+              66 => {get_tuple_element, 3},
               78 => {call_ext_only, 2},
               153 => {line, 1},
-              163 => {get_tl, 1}},
+              159 => {is_tagged_tuple, 4},
+              163 => {get_tl, 1},
+              166 => {bs_start_match3, 4},
+              182 => {bs_match, 3}},
   case Opcodes of
     #{N := {Opcode, Arity}} -> opcode(Opcode, Arity, Data, Acc);
     _ -> lists:reverse([{failed, Rem}|Acc])
