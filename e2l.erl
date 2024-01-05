@@ -132,21 +132,25 @@ lit(<<Count:32/big, Data/binary>>) -> lit(Count, Data, []).
 lit(0, <<>>, Acc) -> lists:reverse(Acc);
 lit(N, <<Sz:32/big, Lit:Sz/binary, Rest/binary>>, Acc) -> lit(N - 1, Rest, [binary_to_term(Lit)|Acc]).
 
-code(<<1:8/big, Data/binary>>, Acc) -> opcode(label, 1, Data, Acc);
-code(<<2:8/big, Data/binary>>, Acc) -> opcode(func_info, 3, Data, Acc);
-code(<<3:8/big, Data/binary>>, Acc) -> opcode(int_code_end, 0, Data, Acc);
-code(<<6:8/big, Data/binary>>, Acc) -> opcode(call_only, 2, Data, Acc);
-code(<<7:8/big, Data/binary>>, Acc) -> opcode(call_ext, 2, Data, Acc);
-code(<<19:8/big, Data/binary>>, Acc) -> opcode(return, 0, Data, Acc);
-code(<<52:8/big, Data/binary>>, Acc) -> opcode(is_nil, 2, Data, Acc);
-code(<<56:8/big, Data/binary>>, Acc) -> opcode(is_nonempty_list, 2, Data, Acc);
-code(<<64:8/big, Data/binary>>, Acc) -> opcode(move, 2, Data, Acc);
-code(<<65:8/big, Data/binary>>, Acc) -> opcode(get_list, 3, Data, Acc);
-code(<<78:8/big, Data/binary>>, Acc) -> opcode(call_ext_only, 2, Data, Acc);
-code(<<153:8/big, Data/binary>>, Acc) -> opcode(line, 1, Data, Acc);
-code(<<163:8/big, Data/binary>>, Acc) -> opcode(get_tl, 1, Data, Acc);
-code(<<>>, Acc) -> lists:reverse(Acc);
-code(Rem, Acc) -> lists:reverse([{failed, Rem}|Acc]).
+code(<<N:8/big, Data/binary>> = Rem, Acc) ->
+  Opcodes = #{1 => {label, 1},
+              2 => {func_info, 3},
+              3 => {int_code_end, 0},
+              6 => {call_only, 2},
+              7 => {call_ext, 2},
+              19 => {return, 0},
+              52 => {is_nil, 2},
+              56 => {is_nonempty_list, 2},
+              64 => {move, 2},
+              65 => {get_list, 3},
+              78 => {call_ext_only, 2},
+              153 => {line, 1},
+              163 => {get_tl, 1}},
+  case Opcodes of
+    #{N := {Opcode, Arity}} -> opcode(Opcode, Arity, Data, Acc);
+    _ -> lists:reverse([{failed, Rem}|Acc])
+  end;
+code(<<>>, Acc) -> lists:reverse(Acc).
 
 opcode(Lbl, Arity, Data, Acc) ->
   {Args, Rest} = args(Arity, Data),
