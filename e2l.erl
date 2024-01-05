@@ -15,11 +15,15 @@ parse_chunks(<<Id:4/binary, Sz:32/big, Blob/binary>>, Acc) ->
   <<Data:Sz/binary, _:PadSz/binary, Rest/binary>> = Blob,
   parse_chunks(Rest, parse_chunk(binary_to_list(Id), Data, Acc)).
 
+parse_chunk("Attr", Data, Acc) -> Acc#{attr => binary_to_term(Data)};
+parse_chunk("CInf", Data, Acc) -> Acc#{cinf => binary_to_term(Data)};
 parse_chunk("Code", <<HdSz:32/big, Hd:HdSz/binary, Code/binary>>, Acc) ->
   <<_InstSet:32/big, _OpcodeMax:32/big, _LabelCount:32/big, _FnCount:32/big, _/binary>> = Hd,
   Acc#{code => code(Code, [])};
+parse_chunk("Dbgi", Data, Acc) -> Acc#{dbgi => binary_to_term(Data)};
 parse_chunk("LitT", <<_UnSz:32/big, Comp/binary>>, Acc) ->
   Acc#{literals => lit(zlib:uncompress(Comp))};
+parse_chunk("Meta", Data, Acc) -> Acc#{meta => binary_to_term(Data)};
 parse_chunk(Id, Data, Acc) -> Acc#{Id => Data}.
 
 lit(<<Count:32/big, Data/binary>>) -> lit(Count, Data, []).
