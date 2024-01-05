@@ -21,10 +21,17 @@ parse_chunk("Code", <<HdSz:32/big, Hd:HdSz/binary, Code/binary>>, Acc) ->
   <<_InstSet:32/big, _OpcodeMax:32/big, _LabelCount:32/big, _FnCount:32/big, _/binary>> = Hd,
   Acc#{code => code(Code, [])};
 parse_chunk("Dbgi", Data, Acc) -> Acc#{dbgi => binary_to_term(Data)};
+parse_chunk("ExpT", <<Sz:32/big, Data/binary>>, Acc) -> Acc#{exports => impt(Sz, Data)};
+parse_chunk("ImpT", <<Sz:32/big, Data/binary>>, Acc) -> Acc#{imports => impt(Sz, Data)};
 parse_chunk("LitT", <<_UnSz:32/big, Comp/binary>>, Acc) ->
   Acc#{literals => lit(zlib:uncompress(Comp))};
 parse_chunk("Meta", Data, Acc) -> Acc#{meta => binary_to_term(Data)};
 parse_chunk(Id, Data, Acc) -> Acc#{Id => Data}.
+
+impt(Sz, Data) -> impt(Sz, Data, []).
+impt(0, <<>>, Acc) -> lists:reverse(Acc);
+impt(Sz, <<Mod:32/big, Fn:32/big, Art:32/big, Rest/binary>>, Acc) ->
+  impt(Sz - 1, Rest, [{Mod, Fn, Art}|Acc]).
 
 lit(<<Count:32/big, Data/binary>>) -> lit(Count, Data, []).
 lit(0, <<>>, Acc) -> lists:reverse(Acc);
