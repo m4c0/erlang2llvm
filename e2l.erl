@@ -5,7 +5,37 @@ main([Filename]) ->
   { ok, <<"FOR1",Sz:32/big,Data:Sz/binary>> } = file:read_file(Filename),
   <<"BEAM",ChunksData/binary>> = Data,
   Chunks = parse_chunks(ChunksData),
-  io:format("~p~n", [Chunks]).
+  export(Chunks).
+
+%% Exporter
+
+export(Chunks) ->
+  export_lits(Chunks),
+  export_impt(Chunks).
+
+export_lits(#{literals := Lits}) -> export_lits(0, Lits).
+export_lits(_, []) -> io:format("~n");
+export_lits(N, [X|Lits]) ->
+  io:format("@.str.~b = private unnamed_addr constant [~b x i8] c\"~s\"~n",
+            [N, length(X), X]),
+  export_lits(N + 1, Lits).
+
+export_impt(#{imports := T, atoms := Atoms}) -> export_impt(T, Atoms).
+export_impt([], _) -> io:format("~n");
+export_impt([{Mod, Fn, Art}|T], Atoms) ->
+  AM = lists:nth(Mod, Atoms),
+  AF = lists:nth(Fn, Atoms),
+  io:format("declare ptr @erl~b~s~b~s~b(",
+            [length(AM), AM, length(AF), AF, Art]),
+  fmt_imp_args(Art),
+  io:format(")~n"),
+  export_impt(T, Atoms).
+
+fmt_imp_args(0) -> ok;
+fmt_imp_args(1) -> io:format("ptr nocapture");
+fmt_imp_args(N) -> io:format("ptr nocapture, "), fmt_imp_args(N - 1).
+
+%% Raw parser
 
 parse_chunks(X) -> parse_chunks(X, #{}).
 parse_chunks(<<>>, Acc) -> Acc;
