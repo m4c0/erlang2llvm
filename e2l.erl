@@ -20,7 +20,18 @@ parse_chunk("Code", <<HdSz:32/big, Hd:HdSz/binary, Code/binary>>, Acc) ->
   Acc#{code => code(Code, [])};
 parse_chunk(_, _, Acc) -> Acc.
 
-code(<<1:8/big, N:5/big, 0:3/big, Rest/binary>>, Acc) -> code(Rest, [{label, N}|Acc]);
-code(<<2:8/big, Rest/binary>>, Acc) -> code(Rest, [{func_info}|Acc]);
-code(<<153:8/big, N:5/big, 0:3/big, Rest/binary>>, Acc) -> code(Rest, [{line, N}|Acc]);
+code(<<1:8/big, Data/binary>>, Acc) -> 
+  {[{literal, N}], Rest} = args(1, Data),
+  code(Rest, [{label, N}|Acc]);
+code(<<2:8/big, Data/binary>>, Acc) ->
+  {As, Rest} = args(3, Data),
+  code(Rest, [{func_info, As}|Acc]);
+code(<<153:8/big, Data/binary>>, Acc) ->
+  {[{literal, N}], Rest} = args(1, Data),
+  code(Rest, [{line, N}|Acc]);
 code(<<>>, Acc) -> lists:reverse(Acc).
+
+args(Arity, Data) -> args(Arity, [], Data).
+args(0, Acc, Rest) -> {lists:reverse(Acc), Rest};
+args(N, Acc, <<L:5/big, 0:3/big, Rest/binary>>) -> args(N - 1, [{literal, L}|Acc], Rest);
+args(N, Acc, <<L:5/big, 2:3/big, Rest/binary>>) -> args(N - 1, [{atom, L}|Acc], Rest).
