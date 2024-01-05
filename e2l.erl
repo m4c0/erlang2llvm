@@ -60,7 +60,10 @@ export_expt([{Nm, Art, Lbl}|Es], [M|_]=Atoms) ->
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
 export_lits(_, []) -> io:nl();
-export_lits(N, [X|Lits]) ->
+export_lits(N, [X|Lits]) when is_map(X) ->
+  io:format("// map literals (id = ~b) is not supported~n", [N]),
+  export_lits(N + 1, Lits);
+export_lits(N, [X|Lits]) when is_list(X) ->
   io:format("@.str.~b = private unnamed_addr constant [~b x i8] c\"~s\"~n",
             [N, length(X), X]),
   export_lits(N + 1, Lits).
