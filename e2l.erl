@@ -31,12 +31,21 @@ export_opcode({label, [{literal, L}]}, _, #{open_fn := 0, arity := Art}=State) -
   io:format("define private ptr @.lbl~b(", [L]),
   fmt_fn_args(Art),
   io:format(") unnamed_addr {~n"),
-  State#{open_fn => L};
+  State#{open_fn => L, pend_lbl => 0};
+export_opcode({label, [{literal, L}]}, _, #{open_fn := N}=State) when N > 0 ->
+  State#{pend_lbl => L};
 export_opcode({label, _}, _, #{}=State) -> State;
 export_opcode({line, _}, _, State) -> State;
 export_opcode(C, _, State) -> unsup(C, State).
 
-unsup(C, State) -> io:format("// unsupported: ~p~n", [C]), State.
+unsup(C, State) -> 
+  NewState = emit_pend_label(State),
+  io:format("// unsupported: ~p~n", [C]), NewState.
+
+emit_pend_label(#{pend_lbl := N}=S) when N > 0 ->
+  io:format("lbl~b:~n", [N]),
+  S#{pend_lbl => 0};
+emit_pend_label(#{}=S) -> S.
 
 close_fn(#{open_fn := N}=S) when N > 0 -> io:format("}~n"), S#{open_fn => 0};
 close_fn(#{}=S) -> S.
