@@ -5,13 +5,26 @@ main([Filename]) ->
   { ok, <<"FOR1",Sz:32/big,Data:Sz/binary>> } = file:read_file(Filename),
   <<"BEAM",ChunksData/binary>> = Data,
   Chunks = parse_chunks(ChunksData),
+  %% io:format("~p~n", [Chunks]),
   export(Chunks).
 
 %% Exporter
 
 export(Chunks) ->
   export_lits(Chunks),
-  export_impt(Chunks).
+  export_impt(Chunks),
+  export_expt(Chunks),
+  export_code(Chunks).
+
+export_code(#{code := Code, atoms := Atoms}) -> export_code(Code, Atoms).
+export_code(_, _) -> ok.
+
+export_expt(#{exports := Exports, atoms := Atoms}) -> export_expt(Exports, Atoms).
+export_expt([], _) -> io:format("~n");
+export_expt([{Nm, Art, Lbl}|Es], [M|_]=Atoms) ->
+  Name = lists:nth(Nm, Atoms),
+  PubName = pub_fn_name(M, Name, Art),
+  io:format("~s = alias ptr, ptr @lbl~b~n", [PubName, Lbl]).
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
 export_lits(_, []) -> io:format("~n");
@@ -25,8 +38,8 @@ export_impt([], _) -> io:format("~n");
 export_impt([{Mod, Fn, Art}|T], Atoms) ->
   AM = lists:nth(Mod, Atoms),
   AF = lists:nth(Fn, Atoms),
-  io:format("declare ptr @erl~b~s~b~s~b(",
-            [length(AM), AM, length(AF), AF, Art]),
+  PubName = pub_fn_name(AM, AF, Art),
+  io:format("declare ptr ~s(", [PubName]),
   fmt_imp_args(Art),
   io:format(")~n"),
   export_impt(T, Atoms).
@@ -34,6 +47,9 @@ export_impt([{Mod, Fn, Art}|T], Atoms) ->
 fmt_imp_args(0) -> ok;
 fmt_imp_args(1) -> io:format("ptr nocapture");
 fmt_imp_args(N) -> io:format("ptr nocapture, "), fmt_imp_args(N - 1).
+
+pub_fn_name(Mod, Fn, Art) ->
+  io_lib:format("@erl~b~s~b~s~b", [length(Mod), Mod, length(Fn), Fn, Art]).
 
 %% Raw parser
 
