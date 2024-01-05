@@ -1,4 +1,4 @@
 -module(hello).
 -export([main/1]).
 
-main(_) -> io:format("hello, world~n").
+main([Name]) -> io:format("hello, ~s~n", Name).
