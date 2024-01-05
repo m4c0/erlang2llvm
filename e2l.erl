@@ -22,18 +22,18 @@ export_code([X|Rest], Atoms, State) ->
   export_code(Rest, Atoms, NewState);
 export_code([], _, _) -> io:nl().
 
-export_opcode({call_ext_only, _}=C, Atoms, State) -> unsup(C, State);
-export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}=C, Atoms, State) ->
+export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}, Atoms, State) ->
   NewState = close_fn(State),
   io:format("// ~s~n", [erl_fn_name(M, F, A, Atoms)]),
-  NewState#{func => {M, F, A}, open_fn => 0};
+  NewState#{arity => A, open_fn => 0};
 export_opcode({int_code_end, []}, _, State) -> close_fn(State), State;
-export_opcode({label, [{literal, L}]}, _, #{open_fn := 0}=State) ->
-  io:format("define private ptr @.lbl~b() unnamed_addr {~n", [L]),
+export_opcode({label, [{literal, L}]}, _, #{open_fn := 0, arity := Art}=State) ->
+  io:format("define private ptr @.lbl~b(", [L]),
+  fmt_fn_args(Art),
+  io:format(") unnamed_addr {~n"),
   State#{open_fn => L};
 export_opcode({label, _}, _, #{}=State) -> State;
-export_opcode({line, _}=C, _, State) -> unsup(C, State);
-export_opcode({move, [F, T]}=C, _, State) -> unsup(C, State).
+export_opcode(C, _, State) -> unsup(C, State).
 
 unsup(C, State) -> io:format("// unsupported: ~p~n", [C]), State.
 
@@ -65,6 +65,10 @@ export_impt([{Mod, Fn, Art}|T], Atoms) ->
   fmt_imp_args(Art),
   io:format(")~n"),
   export_impt(T, Atoms).
+
+fmt_fn_args(0) -> ok;
+fmt_fn_args(1) -> io:format("ptr nocapture");
+fmt_fn_args(N) -> io:format("ptr nocapture, "), fmt_fn_args(N - 1).
 
 fmt_imp_args(0) -> ok;
 fmt_imp_args(1) -> io:format("ptr nocapture");
