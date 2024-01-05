@@ -20,15 +20,19 @@ export_code(#{code := Code, atoms := Atoms}) -> export_code(Code, Atoms, #{}).
 export_code([X|Rest], Atoms, State) ->
   NewState = export_opcode(X, Atoms, State),
   export_code(Rest, Atoms, NewState);
-export_code([], _, State) -> 
-  close_fn(State),
-  io:nl().
+export_code([], _, _) -> io:nl().
 
+export_opcode({call_ext_only, _}=C, Atoms, State) -> unsup(C, State);
+export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}=C, _, State) -> unsup(C, State);
+export_opcode({int_code_end, []}, _, State) -> close_fn(State), State;
 export_opcode({label, [{literal, L}]}, _, State) ->
   close_fn(State),
   io:format("define private ptr @.lbl~b() unnamed_addr {~n", [L]),
   State#{open_fn => L};
-export_opcode(_, _, State) -> State.
+export_opcode({line, _}=C, _, State) -> unsup(C, State);
+export_opcode({move, [F, T]}=C, _, State) -> unsup(C, State).
+
+unsup(C, State) -> io:format("  // unsupported: ~p~n", [C]), State.
 
 close_fn(#{open_fn := _}) -> io:format("}~n");
 close_fn(#{}) -> ok.
