@@ -15,6 +15,7 @@ parse_chunks(<<Id:4/binary, Sz:32/big, Blob/binary>>, Acc) ->
   <<Data:Sz/binary, _:PadSz/binary, Rest/binary>> = Blob,
   parse_chunks(Rest, parse_chunk(binary_to_list(Id), Data, Acc)).
 
+parse_chunk("AtU8", <<Sz:32/big, Data/binary>>, Acc) -> Acc#{atoms => atoms(Sz, Data)};
 parse_chunk("Attr", Data, Acc) -> Acc#{attr => binary_to_term(Data)};
 parse_chunk("CInf", Data, Acc) -> Acc#{cinf => binary_to_term(Data)};
 parse_chunk("Code", <<HdSz:32/big, Hd:HdSz/binary, Code/binary>>, Acc) ->
@@ -27,6 +28,11 @@ parse_chunk("LitT", <<_UnSz:32/big, Comp/binary>>, Acc) ->
   Acc#{literals => lit(zlib:uncompress(Comp))};
 parse_chunk("Meta", Data, Acc) -> Acc#{meta => binary_to_term(Data)};
 parse_chunk(Id, Data, Acc) -> Acc#{Id => Data}.
+
+atoms(Sz, Data) -> atoms(Sz, Data, []).
+atoms(0, <<>>, Acc) -> lists:reverse(Acc);
+atoms(Sz, <<Len:8/big, Str:Len/binary, Rest/binary>>, Acc) ->
+  atoms(Sz - 1, Rest, [binary_to_list(Str)|Acc]).
 
 impt(Sz, Data) -> impt(Sz, Data, []).
 impt(0, <<>>, Acc) -> lists:reverse(Acc);
