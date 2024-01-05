@@ -23,19 +23,22 @@ export_code([X|Rest], Atoms, State) ->
 export_code([], _, _) -> io:nl().
 
 export_opcode({call_ext_only, _}=C, Atoms, State) -> unsup(C, State);
-export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}=C, _, State) -> unsup(C, State);
+export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}=C, Atoms, State) ->
+  NewState = close_fn(State),
+  io:format("// ~s~n", [erl_fn_name(M, F, A, Atoms)]),
+  NewState#{func => {M, F, A}, open_fn => 0};
 export_opcode({int_code_end, []}, _, State) -> close_fn(State), State;
-export_opcode({label, [{literal, L}]}, _, State) ->
-  close_fn(State),
+export_opcode({label, [{literal, L}]}, _, #{open_fn := 0}=State) ->
   io:format("define private ptr @.lbl~b() unnamed_addr {~n", [L]),
   State#{open_fn => L};
+export_opcode({label, _}, _, #{}=State) -> State;
 export_opcode({line, _}=C, _, State) -> unsup(C, State);
 export_opcode({move, [F, T]}=C, _, State) -> unsup(C, State).
 
-unsup(C, State) -> io:format("  // unsupported: ~p~n", [C]), State.
+unsup(C, State) -> io:format("// unsupported: ~p~n", [C]), State.
 
-close_fn(#{open_fn := _}) -> io:format("}~n");
-close_fn(#{}) -> ok.
+close_fn(#{open_fn := N}=S) when N > 0 -> io:format("}~n"), S#{open_fn => 0};
+close_fn(#{}=S) -> S.
 
 export_expt(#{exports := Exports, atoms := Atoms}) -> export_expt(Exports, Atoms).
 export_expt([], _) -> io:nl();
@@ -69,6 +72,10 @@ fmt_imp_args(N) -> io:format("ptr nocapture, "), fmt_imp_args(N - 1).
 
 pub_fn_name(Mod, Fn, Art) ->
   io_lib:format("@erl~b~s~b~s~b", [length(Mod), Mod, length(Fn), Fn, Art]).
+
+erl_fn_name(Mod, Fn, Art, Atoms) -> 
+  erl_fn_name(lists:nth(Mod, Atoms), lists:nth(Fn, Atoms), Art).
+erl_fn_name(Mod, Fn, Art) -> io_lib:format("~s:~s/~b", [Mod, Fn, Art]).
 
 %% Raw parser
 
