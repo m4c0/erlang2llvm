@@ -149,7 +149,7 @@ code(<<N:8/big, Data/binary>> = Rem, Acc) ->
               78 => {call_ext_only, 2},
               153 => {line, 1},
               159 => {is_tagged_tuple, 4},
-              163 => {get_tl, 1},
+              163 => {get_tl, 2},
               166 => {bs_start_match3, 4},
               182 => {bs_match, 3}},
   case Opcodes of
