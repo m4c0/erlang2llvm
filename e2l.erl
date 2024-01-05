@@ -8,9 +8,10 @@ main([Filename]) ->
   io:format("~p~n", [Chunks]).
 
 parse_chunks(X) -> parse_chunks(X, #{}).
+
 parse_chunks(<<>>, Acc) -> Acc;
-parse_chunks(<<A:8, B:8, C:8, D:8, Sz:32, Blob/binary>>, Acc) ->
-  Id = [A, B, C, D],
+parse_chunks(<<Id:4/binary, Sz:32, Blob/binary>>, Acc) ->
   PadSz = 4 * ((Sz + 3) div 4),
   <<Data:PadSz/binary, Rest/binary>> = Blob,
-  parse_chunks(Rest, Acc#{Id => {Sz, Data}}).
+  parse_chunks(Rest, Acc#{binary_to_list(Id) => {Sz, Data}}).
+
