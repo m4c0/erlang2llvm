@@ -122,7 +122,10 @@ lit(N, <<Sz:32/big, Lit:Sz/binary, Rest/binary>>, Acc) -> lit(N - 1, Rest, [bina
 code(<<1:8/big, Data/binary>>, Acc) -> opcode(label, 1, Data, Acc);
 code(<<2:8/big, Data/binary>>, Acc) -> opcode(func_info, 3, Data, Acc);
 code(<<3:8/big, Data/binary>>, Acc) -> opcode(int_code_end, 0, Data, Acc);
+code(<<52:8/big, Data/binary>>, Acc) -> opcode(is_nil, 2, Data, Acc);
+code(<<56:8/big, Data/binary>>, Acc) -> opcode(is_nonempty_list, 2, Data, Acc);
 code(<<64:8/big, Data/binary>>, Acc) -> opcode(move, 2, Data, Acc);
+code(<<65:8/big, Data/binary>>, Acc) -> opcode(get_list, 3, Data, Acc);
 code(<<78:8/big, Data/binary>>, Acc) -> opcode(call_ext_only, 2, Data, Acc);
 code(<<153:8/big, Data/binary>>, Acc) -> opcode(line, 1, Data, Acc);
 code(<<>>, Acc) -> lists:reverse(Acc);
