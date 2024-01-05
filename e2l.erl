@@ -16,25 +16,40 @@ export(Chunks) ->
   export_expt(Chunks),
   export_code(Chunks).
 
-export_code(#{code := Code, atoms := Atoms}) -> export_code(Code, Atoms).
-export_code(_, _) -> ok.
+export_code(#{code := Code, atoms := Atoms}) -> export_code(Code, Atoms, #{}).
+export_code([X|Rest], Atoms, State) ->
+  NewState = export_opcode(X, Atoms, State),
+  export_code(Rest, Atoms, NewState);
+export_code([], _, State) -> 
+  close_fn(State),
+  io:nl().
+
+export_opcode({label, [{literal, L}]}, _, State) ->
+  close_fn(State),
+  io:format("define private ptr @.lbl~b() unnamed_addr {~n", [L]),
+  State#{open_fn => L};
+export_opcode(_, _, State) -> State.
+
+close_fn(#{open_fn := _}) -> io:format("}~n");
+close_fn(#{}) -> ok.
 
 export_expt(#{exports := Exports, atoms := Atoms}) -> export_expt(Exports, Atoms).
-export_expt([], _) -> io:format("~n");
+export_expt([], _) -> io:nl();
 export_expt([{Nm, Art, Lbl}|Es], [M|_]=Atoms) ->
   Name = lists:nth(Nm, Atoms),
   PubName = pub_fn_name(M, Name, Art),
-  io:format("~s = alias ptr, ptr @lbl~b~n", [PubName, Lbl]).
+  io:format("~s = alias ptr, ptr @lbl~b~n", [PubName, Lbl]),
+  export_expt(Es, Atoms).
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
-export_lits(_, []) -> io:format("~n");
+export_lits(_, []) -> io:nl();
 export_lits(N, [X|Lits]) ->
   io:format("@.str.~b = private unnamed_addr constant [~b x i8] c\"~s\"~n",
             [N, length(X), X]),
   export_lits(N + 1, Lits).
 
 export_impt(#{imports := T, atoms := Atoms}) -> export_impt(T, Atoms).
-export_impt([], _) -> io:format("~n");
+export_impt([], _) -> io:nl();
 export_impt([{Mod, Fn, Art}|T], Atoms) ->
   AM = lists:nth(Mod, Atoms),
   AF = lists:nth(Fn, Atoms),
