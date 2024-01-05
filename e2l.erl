@@ -150,5 +150,5 @@ args(N, Acc, <<L:4/big, 0:1/big, 4:3/big, Rest/binary>>) -> args(N - 1, [{y, L}|
 args(N, Acc, <<L:4/big, 0:1/big, 5:3/big, Rest/binary>>) -> args(N - 1, [{label, L}|Acc], Rest);
 args(N, Acc, <<L:4/big, 0:1/big, 6:3/big, Rest/binary>>) -> args(N - 1, [{char, L}|Acc], Rest);
 %% OTP-20 values only
-args(N, Acc, <<4:4/big, 0:1/big, 7:3/big, Sz:8/big, Lit:Sz/big, Rest/binary>>) -> 
+args(N, Acc, <<4:4/big, 0:1/big, 7:3/big, Lit:8/big, Rest/binary>>) -> 
   args(N - 1, [{literal_ex, Lit}|Acc], Rest).
