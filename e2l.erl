@@ -33,6 +33,7 @@ export_opcode({label, [{literal, L}]}, _, #{open_fn := 0, arity := Art}=State) -
   io:format(") unnamed_addr {~n"),
   State#{open_fn => L};
 export_opcode({label, _}, _, #{}=State) -> State;
+export_opcode({line, _}, _, State) -> State;
 export_opcode(C, _, State) -> unsup(C, State).
 
 unsup(C, State) -> io:format("// unsupported: ~p~n", [C]), State.
