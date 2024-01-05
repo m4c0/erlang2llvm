@@ -17,5 +17,10 @@ parse_chunks(<<Id:4/binary, Sz:32/big, Blob/binary>>, Acc) ->
 
 parse_chunk("Code", <<HdSz:32/big, Hd:HdSz/binary, Code/binary>>, Acc) ->
   <<_InstSet:32/big, _OpcodeMax:32/big, _LabelCount:32/big, _FnCount:32/big, _/binary>> = Hd,
-  Acc#{code => Code};
+  Acc#{code => code(Code, [])};
 parse_chunk(_, _, Acc) -> Acc.
+
+code(<<1:8/big, N:5/big, 0:3/big, Rest/binary>>, Acc) -> code(Rest, [{label, N}|Acc]);
+code(<<2:8/big, Rest/binary>>, Acc) -> code(Rest, [{func_info}|Acc]);
+code(<<153:8/big, N:5/big, 0:3/big, Rest/binary>>, Acc) -> code(Rest, [{line, N}|Acc]);
+code(<<>>, Acc) -> lists:reverse(Acc).
