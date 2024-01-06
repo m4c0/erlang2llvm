@@ -55,7 +55,10 @@ emit_pend_label(#{pend_lbl := N}=S) when N > 0 ->
   S#{pend_lbl => 0};
 emit_pend_label(#{}=S) -> S.
 
-close_fn(#{open_fn := N}=S) when N > 0 -> io:format("}~n"), S#{open_fn => 0};
+close_fn(#{open_fn := N}=S) when N > 0 ->
+  io:format("lbl~b:~n", [N]),
+  io:format("}~n~n"),
+  S#{open_fn => 0};
 close_fn(#{}=S) -> S.
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
