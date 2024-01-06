@@ -13,10 +13,10 @@ main([Filename]) ->
 export(Chunks) ->
   export_lits(Chunks),
   export_impt(Chunks),
-  export_expt(Chunks),
   export_code(Chunks).
 
-export_code(#{code := Code, atoms := Atoms}) -> export_code(Code, Atoms, #{}).
+export_code(#{code := Code, atoms := Atoms, exports := ExpT}) ->
+  export_code(Code, Atoms, #{exports => ExpT}).
 export_code([X|Rest], Atoms, State) ->
   NewState = export_opcode(X, Atoms, State),
   export_code(Rest, Atoms, NewState);
@@ -25,12 +25,16 @@ export_code([], _, _) -> io:nl().
 export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}, Atoms, State) ->
   NewState = close_fn(State),
   io:format("// ~s~n", [erl_fn_name(M, F, A, Atoms)]),
-  NewState#{arity => A, open_fn => 0};
+  NewState#{name => {M, F, A}, open_fn => 0};
 export_opcode({int_code_end, []}, _, State) -> close_fn(State), State;
-export_opcode({label, [{literal, L}]}, _, #{open_fn := 0, arity := Art}=State) ->
-  io:format("define private ptr @.lbl~b(", [L]),
-  fmt_fn_args(Art),
+export_opcode({label, [{literal, L}]}, Atoms, #{open_fn := 0}=State) ->
+  #{name := {M, F, A}, exports := Expt} = State,
+  Link = linkage(F, A, Expt),
+  Name = pub_fn_name(lists:nth(M, Atoms), lists:nth(F, Atoms), A),
+  io:format("define ~sptr ~s(", [Link, Name]),
+  fmt_fn_args(A),
   io:format(") unnamed_addr {~n"),
+  emit_pend_label(State#{pend_lbl => L}),
   State#{open_fn => L, pend_lbl => 0};
 export_opcode({label, [{literal, L}]}, _, #{open_fn := N}=State) when N > 0 ->
   State#{pend_lbl => L};
@@ -42,6 +46,10 @@ unsup(C, State) ->
   NewState = emit_pend_label(State),
   io:format("// unsupported: ~p~n", [C]), NewState.
 
+linkage(_, _, []) -> "private ";
+linkage(F, A, [{F, A, _}|_]) -> "";
+linkage(F, A, [_|E]) -> linkage(F, A, E).
+
 emit_pend_label(#{pend_lbl := N}=S) when N > 0 ->
   io:format("lbl~b:~n", [N]),
   S#{pend_lbl => 0};
@@ -49,14 +57,6 @@ emit_pend_label(#{}=S) -> S.
 
 close_fn(#{open_fn := N}=S) when N > 0 -> io:format("}~n"), S#{open_fn => 0};
 close_fn(#{}=S) -> S.
-
-export_expt(#{exports := Exports, atoms := Atoms}) -> export_expt(Exports, Atoms).
-export_expt([], _) -> io:nl();
-export_expt([{Nm, Art, Lbl}|Es], [M|_]=Atoms) ->
-  Name = lists:nth(Nm, Atoms),
-  PubName = pub_fn_name(M, Name, Art),
-  io:format("~s = alias ptr, ptr @lbl~b~n", [PubName, Lbl]),
-  export_expt(Es, Atoms).
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
 export_lits(_, []) -> io:nl();
