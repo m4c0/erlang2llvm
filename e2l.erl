@@ -47,6 +47,8 @@ export_opcode({label, [{literal, L}]}) ->
     undefined -> undefined
   end,
   put(pend_lbl, L);
+export_opcode({move, [{x, Src}, {x, Dst}]}) ->
+  io:format("  %x~b = load ptr, ptr %x~b~n", [Dst, Src]);
 export_opcode({line, _}) -> undefined;
 export_opcode(C) ->
   emit_pend_label(),
