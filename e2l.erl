@@ -15,51 +15,59 @@ export(Chunks) ->
   export_impt(Chunks),
   export_code(Chunks).
 
+%% Using the process storage for anything "global" when exporting the code.
+%% This makes the whole exporter simpler. Erlang is based on Prolog, not
+%% Haskell... :)
+
 export_code(#{code := Code, atoms := Atoms, exports := ExpT}) ->
-  export_code(Code, Atoms, #{exports => ExpT}).
-export_code([X|Rest], Atoms, State) ->
-  NewState = export_opcode(X, Atoms, State),
-  export_code(Rest, Atoms, NewState);
-export_code([], _, _) -> io:nl().
+  put(atoms, Atoms),
+  put(exports, ExpT),
+  lists:foreach(fun export_opcode/1, Code).
 
-export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}, Atoms, State) ->
-  NewState = close_fn(State),
-  io:format("// ~s~n", [erl_fn_name(M, F, A, Atoms)]),
-  NewState#{name => {M, F, A}, open_fn => 0};
-export_opcode({int_code_end, []}, _, State) -> close_fn(State), State;
-export_opcode({label, [{literal, L}]}, Atoms, #{open_fn := 0}=State) ->
-  #{name := {M, F, A}, exports := Expt} = State,
-  Link = linkage(F, A, Expt),
-  Name = pub_fn_name(lists:nth(M, Atoms), lists:nth(F, Atoms), A),
-  io:format("define ~sptr ~s(", [Link, Name]),
-  fmt_fn_args(A),
-  io:format(") unnamed_addr {~n"),
-  emit_pend_label(State#{pend_lbl => L}),
-  State#{open_fn => L, pend_lbl => 0};
-export_opcode({label, [{literal, L}]}, _, #{open_fn := N}=State) when N > 0 ->
-  State#{pend_lbl => L};
-export_opcode({label, _}, _, #{}=State) -> State;
-export_opcode({line, _}, _, State) -> State;
-export_opcode(C, _, State) -> unsup(C, State).
-
-unsup(C, State) -> 
-  NewState = emit_pend_label(State),
-  io:format("// unsupported: ~p~n", [C]), NewState.
+export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}) ->
+  close_fn(),
+  io:format("// ~s~n", [erl_fn_name(M, F, A)]),
+  put(func_info, {M, F, A}),
+  put(open_fn, undefined);
+export_opcode({int_code_end, []}) -> close_fn();
+export_opcode({label, [{literal, L}]}) ->
+  case get(open_fn) of
+    undefined ->
+      {M, F, A} = get(func_info),
+      Link = linkage(F, A, get(exports)),
+      Name = pub_fn_name(M, F, A, get(atoms)),
+      io:format("define ~sptr ~s(", [Link, Name]),
+      fmt_fn_args(A),
+      io:format(") unnamed_addr {~n"),
+      emit_pend_label(),
+      put(open_fn, L);
+    L -> put(pend_lbl, L)
+  end;
+export_opcode({line, _}) -> undefined;
+export_opcode(C) ->
+  emit_pend_label(),
+  io:format("// unsupported: ~p~n", [C]).
 
 linkage(_, _, []) -> "private ";
 linkage(F, A, [{F, A, _}|_]) -> "";
 linkage(F, A, [_|E]) -> linkage(F, A, E).
 
-emit_pend_label(#{pend_lbl := N}=S) when N > 0 ->
-  io:format("lbl~b:~n", [N]),
-  S#{pend_lbl => 0};
-emit_pend_label(#{}=S) -> S.
+emit_pend_label() ->
+  case get(pend_lbl) of
+    undefined -> undefined;
+    N ->
+      io:format("lbl~b:~n", [N]),
+      put(pend_lbl, undefined)
+  end.
 
-close_fn(#{open_fn := N}=S) when N > 0 ->
-  io:format("lbl~b:~n", [N]),
-  io:format("}~n~n"),
-  S#{open_fn => 0};
-close_fn(#{}=S) -> S.
+close_fn() ->
+  case get(open_fn) of
+    undefined -> undefined;
+    N ->
+      io:format("lbl~b:~n", [N]),
+      io:format("}~n~n"),
+      put(open_fn, undefined)
+  end.
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
 export_lits(_, []) -> io:nl();
@@ -74,9 +82,7 @@ export_lits(N, [X|Lits]) when is_list(X) ->
 export_impt(#{imports := T, atoms := Atoms}) -> export_impt(T, Atoms).
 export_impt([], _) -> io:nl();
 export_impt([{Mod, Fn, Art}|T], Atoms) ->
-  AM = lists:nth(Mod, Atoms),
-  AF = lists:nth(Fn, Atoms),
-  PubName = pub_fn_name(AM, AF, Art),
+  PubName = pub_fn_name(Mod, Fn, Art, Atoms),
   io:format("declare ptr ~s(", [PubName]),
   fmt_imp_args(Art),
   io:format(")~n"),
@@ -90,12 +96,15 @@ fmt_imp_args(0) -> ok;
 fmt_imp_args(1) -> io:format("ptr nocapture");
 fmt_imp_args(N) -> io:format("ptr nocapture, "), fmt_imp_args(N - 1).
 
-pub_fn_name(Mod, Fn, Art) ->
-  io_lib:format("@erl~b~s~b~s~b", [length(Mod), Mod, length(Fn), Fn, Art]).
+pub_fn_name(Mod, Fn, Art, Atoms) ->
+  AM = lists:nth(Mod, Atoms),
+  AF = lists:nth(Fn, Atoms),
+  io_lib:format("@erl~b~s~b~s~b", [length(AM), AM, length(AF), AF, Art]).
 
-erl_fn_name(Mod, Fn, Art, Atoms) -> 
-  erl_fn_name(lists:nth(Mod, Atoms), lists:nth(Fn, Atoms), Art).
-erl_fn_name(Mod, Fn, Art) -> io_lib:format("~s:~s/~b", [Mod, Fn, Art]).
+erl_fn_name(Mod, Fn, Art) -> 
+  Atoms = get(atoms),
+  Args = [lists:nth(Mod, Atoms), lists:nth(Fn, Atoms), Art],
+  io_lib:format("~s:~s/~b", Args).
 
 %% Raw parser
 
