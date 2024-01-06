@@ -30,7 +30,7 @@ export_code(#{code := Code, atoms := Atoms, exports := ExpT}) ->
 
 export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}) ->
   close_fn(),
-  io:format("// ~s~n", [erl_fn_name(M, F, A)]),
+  io:format("; ~s~n", [erl_fn_name(M, F, A)]),
   put(func_info, {M, F, A});
 export_opcode({int_code_end, []}) -> close_fn();
 export_opcode({label, [{literal, L}]}) ->
@@ -50,7 +50,7 @@ export_opcode({label, [{literal, L}]}) ->
 export_opcode({line, _}) -> undefined;
 export_opcode(C) ->
   emit_pend_label(),
-  io:format("// unsupported: ~p~n", [C]).
+  io:format("; unsupported: ~p~n", [C]).
 
 linkage(_, _, []) -> "private ";
 linkage(F, A, [{F, A, _}|_]) -> "";
@@ -78,7 +78,7 @@ close_fn() ->
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
 export_lits(_, []) -> io:nl();
 export_lits(N, [X|Lits]) when is_map(X) ->
-  io:format("// map literals (id = ~b) is not supported~n", [N]),
+  io:format("; map literals (id = ~b) is not supported~n", [N]),
   export_lits(N + 1, Lits);
 export_lits(N, [X|Lits]) when is_list(X) ->
   io:format("@.str.~b = private unnamed_addr constant [~b x i8] c\"~s\"~n",
