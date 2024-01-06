@@ -13,7 +13,11 @@ parse(Filename) ->
 export(Chunks) ->
   export_lits(Chunks),
   export_impt(Chunks),
+  export_implicits(),
   export_code(Chunks).
+
+export_implicits() ->
+  io:format("declare void @e2l_error() noreturn~n").
 
 %% Using the process storage for anything "global" when exporting the code.
 %% This makes the whole exporter simpler. Erlang is based on Prolog, not
@@ -65,6 +69,8 @@ close_fn() ->
     undefined -> undefined;
     N ->
       io:format("lbl~b:~n", [N]),
+      io:format("  call void e2l_error~n"),
+      io:format("  unreachable~n"),
       io:format("}~n~n"),
       put(open_fn, undefined)
   end.
