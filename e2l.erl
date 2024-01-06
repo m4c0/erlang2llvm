@@ -1,7 +1,7 @@
 -module(e2l).
--export([main/1]).
+-export([parse/1]).
 
-main([Filename]) ->
+parse(Filename) ->
   { ok, <<"FOR1",Sz:32/big,Data:Sz/binary>> } = file:read_file(Filename),
   <<"BEAM",ChunksData/binary>> = Data,
   Chunks = parse_chunks(ChunksData),
