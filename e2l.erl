@@ -28,6 +28,10 @@ export_code(#{code := Code, atoms := Atoms, exports := ExpT}) ->
   put(exports, ExpT),
   lists:foreach(fun export_opcode/1, Code).
 
+export_opcode({call_ext_only, [{literal, Arity}, {literal, Imp}]}) ->
+  io:format("  return tail call ptr ~b(", [Imp]),
+  fmt_call_args(Arity, 0),
+  io:format(")~n");
 export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}) ->
   close_fn(),
   io:format("; ~s~n", [erl_fn_name(M, F, A)]),
@@ -71,7 +75,7 @@ close_fn() ->
     undefined -> undefined;
     N ->
       io:format("lbl~b:~n", [N]),
-      io:format("  call void e2l_error~n"),
+      io:format("  call void e2l_error()~n"),
       io:format("  unreachable~n"),
       io:format("}~n~n"),
       put(open_fn, undefined)
@@ -95,6 +99,10 @@ export_impt([{Mod, Fn, Art}|T], Atoms) ->
   fmt_imp_args(Art),
   io:format(")~n"),
   export_impt(T, Atoms).
+
+fmt_call_args(0, _) -> ok;
+fmt_call_args(1, N) -> io:format("ptr %x~b", [N]);
+fmt_call_args(A, N) -> io:format("ptr %x~b, ", [N]), fmt_call_args(A - 1, N + 1).
 
 fmt_fn_args(0) -> ok;
 fmt_fn_args(1) -> io:format("ptr nocapture");
