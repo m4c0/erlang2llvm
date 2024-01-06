@@ -23,13 +23,18 @@ export_implicits() ->
 %% This makes the whole exporter simpler. Erlang is based on Prolog, not
 %% Haskell... :)
 
-export_code(#{code := Code, atoms := Atoms, exports := ExpT}) ->
+export_code(Chunks) ->
+  #{atoms := Atoms,
+    code := Code, 
+    exports := ExpT,
+    imports := ImpT} = Chunks,
   put(atoms, Atoms),
   put(exports, ExpT),
+  put(imports, ImpT),
   lists:foreach(fun export_opcode/1, Code).
 
 export_opcode({call_ext_only, [{literal, Arity}, {literal, Imp}]}) ->
-  io:format("  return tail call ptr ~b(", [Imp]),
+  io:format("  return tail call ptr ~s(", [imp_name(Imp)]),
   fmt_call_args(Arity, 0),
   io:format(")~n");
 export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}) ->
@@ -80,6 +85,10 @@ close_fn() ->
       io:format("}~n~n"),
       put(open_fn, undefined)
   end.
+
+imp_name(Lit) ->
+  {M, F, A} = lists:nth(Lit + 1, get(imports)),
+  pub_fn_name(M, F, A, get(atoms)).
 
 export_lits(#{literals := Lits}) -> export_lits(0, Lits).
 export_lits(_, []) -> io:nl();
