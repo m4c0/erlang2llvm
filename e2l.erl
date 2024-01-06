@@ -27,22 +27,22 @@ export_code(#{code := Code, atoms := Atoms, exports := ExpT}) ->
 export_opcode({func_info, [{atom, M}, {atom, F}, {literal, A}]}) ->
   close_fn(),
   io:format("// ~s~n", [erl_fn_name(M, F, A)]),
-  put(func_info, {M, F, A}),
-  put(open_fn, undefined);
+  put(func_info, {M, F, A});
 export_opcode({int_code_end, []}) -> close_fn();
 export_opcode({label, [{literal, L}]}) ->
-  case get(open_fn) of
-    undefined ->
-      {M, F, A} = get(func_info),
+  case get(func_info) of
+    {M, F, A} ->
       Link = linkage(F, A, get(exports)),
       Name = pub_fn_name(M, F, A, get(atoms)),
       io:format("define ~sptr ~s(", [Link, Name]),
       fmt_fn_args(A),
       io:format(") unnamed_addr {~n"),
-      emit_pend_label(),
-      put(open_fn, L);
-    L -> put(pend_lbl, L)
-  end;
+      put(func_info, undefined),
+      %% uses the label before "func_info" as the exception handler
+      put(open_fn, get(pend_lbl));
+    undefined -> undefined
+  end,
+  put(pend_lbl, L);
 export_opcode({line, _}) -> undefined;
 export_opcode(C) ->
   emit_pend_label(),
