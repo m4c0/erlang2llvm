@@ -47,7 +47,15 @@ export_opcode({label, [{literal, L}]}) ->
     {M, F, A} ->
       Link = linkage(F, A, get(exports)),
       Name = pub_fn_name(M, F, A, get(atoms)),
+      LblFn = lbl_fn_name(L),
       io:format("define ~sptr ~s(", [Link, Name]),
+      fmt_fn_args(A),
+      io:format(") {~n"),
+      io:format("  tail call ptr ~s(", [LblFn]),
+      fmt_call_args(A, 0),
+      io:format(")~n"),
+      io:format("}~n"),
+      io:format("define ptr ~s(", [LblFn]),
       fmt_fn_args(A),
       io:format(") unnamed_addr {~n"),
       put(func_info, undefined),
@@ -125,6 +133,8 @@ pub_fn_name(Mod, Fn, Art, Atoms) ->
   AM = lists:nth(Mod, Atoms),
   AF = lists:nth(Fn, Atoms),
   io_lib:format("@erl~b~s~b~s~b", [length(AM), AM, length(AF), AF, Art]).
+
+lbl_fn_name(N) -> io_lib:format("@erl_lbl~b", [N]).
 
 erl_fn_name(Mod, Fn, Art) -> 
   Atoms = get(atoms),
